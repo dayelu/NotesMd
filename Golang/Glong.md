@@ -858,6 +858,108 @@ switch i {
     [1 2 3] [1 2] [1 2 3 0 0 0 0 0]
     ```
 
+- **`cap`** 
+
+现在插播一个与数组和切片这种迭代类型相关的内含函数 **`cap`**，**` capacity `** 的缩写，返回迭代类型的 “容量”。一下解释来自网络 [Go内置函数cap](https://www.cnblogs.com/baiyuxiong/p/4770968.html)：
+
+```
+func cap(v Type) int
+
+返回指定类型的容量，根据不同类型，返回意义不同。
+
+数组: 元素个数 (和len(v)一样).
+
+数组指针: *v的元素个数 (和len(v)一样).
+
+Slice: the maximum length the slice can reach when resliced;如果v==nil, cap(v) 值为0；
+
+Channel: channel 缓存区的容量, 以其中的元素为单位;如果v==nil, cap(v) 值为0；
+```
+
+下面我以数组和切片为例：
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	arr1 := []int{1, 2, 3, 4, 5, 6}
+	slic := make([]int, 5, 8)
+	fmt.Println("初始化之后，")
+	fmt.Println("arr1 = ", arr1)
+	fmt.Println("slic = ", slic)
+
+	fmt.Println()
+
+	fmt.Println("cap(arr1) = ", cap(arr1))
+	fmt.Println("len(arr1) = ", len(arr1))
+	fmt.Println("cap(slic) = ", cap(slic))
+	fmt.Println("len(slic) = ", len(slic))
+	fmt.Println("slic 重新赋值之后，")
+	slic = arr1[1:3]
+
+	fmt.Println("slic = ", slic)
+
+	fmt.Println("cap(slic) = ", cap(slic))
+	fmt.Println("len(slic) = ", len(slic))
+	fmt.Println()
+	fmt.Println("slic 再次赋值之后，")
+	slic = arr1[:]
+	fmt.Println("slic = ", slic)
+	fmt.Println("cap(slic) = ", cap(slic))
+	fmt.Println("len(slic) = ", len(slic))
+	fmt.Println()
+	arr2 := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	fmt.Println("arr2 = ", arr2)
+	fmt.Println("cap(arr2) = ", cap(arr2))
+	fmt.Println("len(arr2) = ", len(arr2))
+	fmt.Println()
+	fmt.Println("slic 再再次赋值之后，")
+	slic = arr2[:]
+	fmt.Println("slic = ", slic)
+	fmt.Println("cap(slic) = ", cap(slic))
+	fmt.Println("len(slic) = ", len(slic))
+}
+```
+
+运行结果：
+
+```
+初始化之后，
+arr1 =  [1 2 3 4 5 6]
+slic =  [0 0 0 0 0]
+
+cap(arr1) =  6
+len(arr1) =  6
+cap(slic) =  8
+len(slic) =  5
+slic 重新赋值之后，
+slic =  [2 3]
+cap(slic) =  5
+len(slic) =  2
+
+slic 再次赋值之后，
+slic =  [1 2 3 4 5 6]
+cap(slic) =  6
+len(slic) =  6
+
+arr2 =  [1 2 3 4 5 6 7 8 9]
+cap(arr2) =  9
+len(arr2) =  9
+
+slic 再再次赋值之后，
+slic =  [1 2 3 4 5 6 7 8 9]
+cap(slic) =  9
+len(slic) =  9
+```
+
+得出的结论与热心网友总结的差不多，数组的 “容量” 等于 长度，
+
+切片的长度 始终等于元素的实际个数，
+
+当切片实际元素个数小于等于切片定义的长度时，`cap` 函数的计算结果就是这个切片定义的长度；当切片实际元素个数大于切片定义的长度时，小于定义时的容量时，`cap` 函数的计算结果就是这个切片定义的容量，当切片实际元素个数大于切片定义的容量时，`cap` 函数的计算结果就是切片的实际元素个数。
+
 
 
 ## 5.3 Map
@@ -2832,7 +2934,68 @@ func main() {
 
 
 
-# *9. 测试
+# 9. 测试
+
+1. Go 语言编译器在编译（`go build`）和安装（`go install`）时会自动忽略掉以 **`_test.go`** 结尾的文件，这些文件只能通过 **`go test`** 命令运行。
+2. **`go test`** 命令会在当前目下寻找所有以 **`Test`** 开头的函数，并向其传递一个 **`*testing.T`** 类型的参数，接着，执行他们。
+
+下面照抄并执行本书上面的例子（包名有改动）：
+
+- 测试文件 average_test.go
+
+```go
+package testdemo
+
+import "testing"
+
+type testpair struct {
+	values  []float64
+	average float64
+}
+
+var tests = []testpair{
+	{[]float64{1, 2}, 1.5},
+	{[]float64{1, 1, 1, 1, 1, 1}, 1},
+	{[]float64{-1, 1}, 0},
+}
+
+func TestAverage(t *testing.T) {
+	for _, pair := range tests {
+		v := Average(pair.values)
+		if v != pair.average {
+			t.Error(
+				"For", pair.values,
+				"expected", pair.average,
+				"got", v,
+			)
+		}
+	}
+}
+```
+
+- 被测试文件
+
+```
+package testdemo
+
+func Average(xs []float64) float64 {
+	total := float64(0)
+	for _, x := range xs {
+		total += x
+	}
+	return total / float64(len(xs))
+}
+```
+
+如上的例子，有两个文件分别对应测试文件和被测试的单元，代码完全分开。
+
+需要注意的是，要执行测试，并在文件目录下运行 `go test` 的前提是，测试文件在一个模块（module）内部，简单地说，需要在项目文件夹或当前目录下执行 `go mod init 'mod_name'` 进行模块的初始化。由于这本书出于 2016 年，年代久远，而 Go module 特性则发布于 2018 年，故本书未有提及。
+
+关于 Go module 与 GOPATH 的故事请自行百度。
+
+Go module 请看官方文档 [Tutorial: Create a module](https://golang.google.cn/doc/tutorial/create-module.html) [¶](https://golang.google.cn/doc/#create-module-tutorial)。
+
+
 
 
 
@@ -3005,7 +3168,7 @@ var c chan string = make(chan string)
 
 创建一个信道时，还可以给`make` 添加第二个参数，容量（capacity），创建一个带缓冲的信道，这跟不带这个参数的信道有什么区别呢？
 
-一般这种不带参数创建出来的信道是同步的，只有在信道的一头准备就绪之前，另一头都会处于等待的阻塞状态。
+一般这种不带参数创建出来的信道是同步的，**在信道的一头准备就绪之前（发送数据之前），另一头都会处于等待的阻塞状态**。
 
 一个带缓冲的信道是异步的，接受和发送都不必等待对方准备就绪，除非信道已满；如果信道已满，发送方会处于等待状态直到信道至少存在一个空位。
 
@@ -3064,4 +3227,285 @@ func ping(c chan<- string)
 
 
 - **`select`** 语句
+
+Go 语言有用于信道的类似于 **`switch`** 语句：**`select`** 语句。示例如下：
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c1 := make(chan string)
+	c2 := make(chan string)
+	go func() {
+		for {
+			c1 <- "from 1"
+			time.Sleep(time.Second * 2)
+		}
+	}()
+	go func() {
+		for {
+			c2 <- "from 2"
+			time.Sleep(time.Second * 3)
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case msg1 := <-c1:
+				fmt.Println(msg1)
+			case msg2 := <-c2:
+				fmt.Println(msg2)
+			}
+		}
+	}()
+
+	var input string
+
+	fmt.Scanln(&input)
+}
+```
+
+程序解析：
+
+看上面这个例子，3 个协程都是由匿名函数 **调用**（没错函数体末尾右花括号 **`}`** 后面加个括号正是调用的意思，其实这个括号里面应该是参数列表，只不过这些匿名参数都是无参的） 组成（据说这在 Go 语言协程中经常会用到），从上到下，前两个作用分别是，每隔 2 秒向信道 c1 发送字符串 “from1”，每隔 3 秒向 信道 c2 发送字符串 “from2”.
+
+第三个协程 从 信道 c1 和 c2 接收信息，**`select`** 最先准备就就绪的管道接收信息，若两个管道同时准备好，则随机从二者之一抽取；若二者都为空，则阻塞至可用。
+
+将以上 **`select`** 语句稍作改进：
+
+```go
+for {
+    select {
+        case msg1 := <-c1:
+        fmt.Println("Message 1", msg1)
+        case msg2 := <-c2:
+        fmt.Println("Message 2", msg2)
+        case <-time.After(time.Second * 3):
+        fmt.Println("timeout")
+        default:
+        time.Sleep(time.Second)
+        fmt.Println("nothing ready")
+    }
+}
+```
+
+其中 `After` 方法的作用是 :
+
+```
+After waits for the duration to elapse and then sends the current time
+on the returned channel.
+```
+
+所以以上第三个 `case` 的意思就是，等待三秒后将当前时间发送到这个信道（time.After 会创建一个信道，这个例子我们需要这信息）中。**`time.After`** 经常用作超时处理，本书原代码是 `time.After(time.Second)` 窃以两个信道时间间隔最长的那个为 3 ，因此，超时设为一秒没有什么意义，故改之。
+
+和 `switch` 语句一样，**`select`** 语句也有 **`default`**  这种情况，其作用是：
+
+The default case happens immediately if none of the channels are ready.
+
+**`default`** 这种情况会在两个信道都未准备就绪（为空） 的情况下立即触发。
+
+本书原代码中没有这条休眠语句，但是如果不加的话，执行的结果是 “nothing ready” 刷屏。虽说，前两个协程都有休眠时间，但是都在向信道发送信息之后，因此启动瞬间信道因都不是空的，讲道理 应该不至于一上来就刷屏，而且等了十几秒也是这种情况 ，难道是 “ nothing ready” 刷屏太快了，看不到其他内容？
+
+*事实证明，是的。经过增加 bash 的最大 buffer 数量，可以看到 “Message 1 from 1” 和 “Message 2 from 2” 被淹没在 “nothing ready”。*
+
+
+
+- 用 **`range`** 关键字
+
+前面，我们已经知道，**`range`** 常用在循环中，用于迭代可迭代对象。**`range`** 也可以用来从信道取出信息，下面的东西来删改自自网络 [Golang channel的range、close操作](https://blog.csdn.net/zhaominpro/article/details/77584534) :
+
+
+
+> *关于channel读取时的返回值* 
+> 
+> > Often, functions use these additional results to indicate some kind  of error, either by returning an error as in the call to os.Open, or a  bool, usually called ok. If a map lookup, type assertion, or channel  receive appears in an assignment in which two results are expected, each produces an additional boolean result: 
+> >  v, ok = m[key] // map lookup 
+> >  v, ok = x.(T) // type assertion 
+> >  v, ok = <-ch // channel receive 
+> 
+> 对上的文字解释下：map查找，类型断言和读channel数据都会返回两个值，第二个返回值是表示成功或失败的布尔值。 
+>  读channel时，第二个值返回为false时表示channel被关闭。 
+
+*本人PS：这几种类型在赋值时居然可以选择接受赋值者的个数！真是神奇且令人防不胜防哟！经测试，证明以下两种赋值确实都合法：*
+
+```go
+msg := <- c
+msg,ok := <-c
+```
+
+
+
+> ## 一、循环从channel中读取数据
+>
+> 1. **方法一：**
+>
+> ```go
+> for{
+>     if value,ok:=<-ch;ok{
+>         //do somthing
+>     }else{
+>         break;//表示channel已经被关闭，退出循环
+>     }
+> }
+> 
+> // go1234567
+> ```
+>
+
+*PS：实践证明这样直接 break 好像是会报错的。。。*
+
+> 1. **方法二：**
+>
+> ```go
+> //range
+> ch:=make(chan int ,3)
+> ch<-1
+> ch<-2
+> ch<-3
+> 
+> for value:=range ch{
+>     fmt.Print(value)
+> }
+> 
+> // 输出：123
+> // 然后会一直阻塞当前协程，如果在其他协程中调用了close(ch),那么就会跳出for range循环。这也就是for range的特别之处123456789101112
+> ```
+>
+> ## 二、关闭channel
+>
+> 关闭一个channel只需要调用函数close()即可 
+>
+> **注意：**
+>
+> 1. 如果channel已经关闭,继续往它发送数据会导致panic: send on closed channel 
+> 2. 关闭一个已经关闭的channel也会导致panic: close of closed channel 
+> 3. channel关闭后，仍然可以从中读取以发送的数据，读取完数据后，将读取到零值，可以多次读取。
+>
+> ```go
+> func test(){
+>     ch:=make(chan int,3)
+>     ch<-3
+>     ch<-2
+>     ch<-1
+>     close(ch)
+>     fmt.Print(<-ch)
+>     fmt.Print(<-ch)
+>     fmt.Print(<-ch)
+>     fmt.Print(<-ch)
+>     fmt.Print(<-ch)
+> }
+> 
+> // 输出：32100
+> ```
+
+
+
+以上总结出三点：
+
+1. **`<-chan`** 类型可以赋值者一个或一双；
+2. **`for range`**  循环字可以从信道中取数据，直到信道关闭方才跳出循环。
+3. 信道可以用内置函数 **`close`** 关闭，信道关闭后仍可从中取数据直至取空。
+
+---
+
+
+
+本章最后以书中同步一个大程序结尾：
+
+```go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+)
+
+type HomePageSize struct {
+	URL  string
+	Size int
+}
+
+func main() {
+	urls := []string{
+		"http://www.apple.com",
+		"http://www.amazon.com",
+		"http://www.baidu.com", // "http://www.google.com",
+		"http://www.microsoft.com",
+	}
+	results := make(chan HomePageSize)
+	// res := make(chan HomePageSize)
+	for _, url := range urls {
+		go func(url string) {
+			res, err := http.Get(url)
+			if err != nil {
+				panic(err)
+			}
+			defer res.Body.Close()
+			bs, err := ioutil.ReadAll(res.Body)
+            // fmt.Println(bs)
+			if err != nil {
+				panic(err)
+			}
+			results <- HomePageSize{
+				URL:  url,
+				Size: len(bs),
+			}
+		}(url)
+	}
+	var biggest HomePageSize
+	for range urls {
+		// fmt.Println(1)
+		// result := <-res
+		// fmt.Println(result)
+		result := <-results
+		if result.Size > biggest.Size {
+			biggest = result
+		}
+	}
+	fmt.Println("The biggest home page:", biggest.URL)
+}
+```
+
+程序解析：
+
+由于谷歌网无法正常访问，所以这里替换成了百度。结合注释掉的实验性代码，对此部分代码做解析。
+
+```go
+bs, err := ioutil.ReadAll(res.Body)
+// ...
+// fmt.Println(bs)
+Size: len(bs)
+```
+
+结合注释部分，bs 的打印结果是一大串的字节列表，而不是字符串，所以 `len(bs)` 的结果是网页文件的字节大小。
+
+
+
+```go
+results := make(chan HomePageSize)
+// res := make(chan HomePageSize)
+// ...
+for range urls {
+		// fmt.Println(1)
+		// result := <-res
+		// fmt.Println(result)
+		result := <-results
+		if result.Size > biggest.Size {
+			biggest = result
+		}
+```
+
+刚开始存有疑问，`for range urls` 遍历的次数只不过是 `url` 的数量，由于网络延迟的原因，可能存在协程刚刚启动时全都尚未向信道发送数据的情况，那么如果信道为空，就有可能存在取空或者异常的情况，因此如何保证遍历的次数刚好能取出所有数据？如果不能保证，那么就无法得到正确的结果。
+
+经过注释代码的测试后，得出一个结论，**在信道未被发送数据时，向其中读取数据并不会造成异常或者 `panic`，而是会陷入阻塞状态，直到信道中有数据**。
+
+所以即使有网络延迟，向其中读取数据的工作也只是会陷入等待状态（阻塞），而且，由于向信道中发送的数据为 `url` 的个数，所以遍历刚好能取得所有结果。
+
+*PS：这种编程语言原生支持的子程序间通信的方式使得编写并发程序变得无比简单，说实话，在用 Python 写多线程或者协程的程序时，由于对 Python 并发编程知识的欠缺，我就根本没想过线程或协程之间还有通信的可能。*
 
